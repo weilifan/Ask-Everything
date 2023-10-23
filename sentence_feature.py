@@ -1,4 +1,6 @@
 import os
+import shutil
+
 # import docx
 from pypdf import PdfReader
 import torch
@@ -107,26 +109,47 @@ class Dprompt:
         return emb
 
 
+def load_file(files):
+    global prompt_model
+
+    if os.path.exists("temp"):
+        shutil.rmtree("temp")
+    os.mkdir("temp")
+
+    for file in files:
+        n = os.path.basename(file.orig_name)
+        p = os.path.join("temp", n)
+        shutil.move(file.name, p)
+
+    prompt_model.myfaiss.index.reset()
+    prompt_model.load_data("temp")
+
+    return [[None, "文件加载成功😎"]]
+
+
 if __name__ == "__main__":
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     distance = 35000
     model_path = os.path.abspath("D:/Project/2309/2022CFF-Small-sample-data-classification-task/utils/chat_glm_model")
 
-    # with gr.Blocks() as Robot:
-    #     with gr.Row():
-    #         with gr.Column(scale=3):
-    #             chatbot = gr.Chatbot(
-    #                 [[None, "this is😎机器人"], [None, "😎😭"]],
-    #                 height=600
-    #             )
-    #             query = gr.Textbox(placeholder="输入问题，回车提问😎")
-    #         with gr.Column(scale=1):
-    #             file = gr.File(file_count="multiple")
-    #             button = gr.Button("加载文件")
-    #
-    # Robot.launch(server_name="127.0.0.1", server_port=9999, share=False)
-
     prompt_model = Dprompt()
+
+    with gr.Blocks() as Robot:
+        with gr.Row():
+            with gr.Column(scale=3):
+                chatbot = gr.Chatbot(
+                    [[None, "this is😎机器人"], [None, "😎😭"]],
+                    height=600
+                )
+                query = gr.Textbox(placeholder="输入问题，回车提问😎")
+            with gr.Column(scale=1):
+                file = gr.File(file_count="multiple")
+                button = gr.Button("加载文件")
+                button.click(load_file, inputs=file, outputs=chatbot)
+
+    Robot.launch(server_name="127.0.0.1", server_port=9999, share=False)
+
+
 
     while True:
         text = input("输入:")
