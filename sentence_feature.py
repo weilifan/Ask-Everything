@@ -4,6 +4,7 @@ from pypdf import PdfReader
 import torch
 from transformers import AutoTokenizer, AutoModel
 import faiss
+import gradio as gr
 
 
 def get_data(root_path):
@@ -104,10 +105,24 @@ if __name__ == "__main__":
     distance = 35000
     model_path = os.path.abspath("E:/2022CFF-Small-sample-data-classification-task/utils/chat_glm_model")
 
-    prompt_model = Dprompt()
+    with gr.Blocks() as Robot:
+        with gr.Row():
+            with gr.Column(scale=3):
+                chatbot = gr.Chatbot(
+                    [[None, "this is😎机器人"], [None, "😎😭"]],
+                    height=600
+                )
+                query = gr.Textbox(placeholder="输入问题，回车提问😎")
+            with gr.Column(scale=1):
+                file = gr.File(file_count="multiple")
+                button = gr.Button("加载文件")
 
-    while True:
-        text = input("输入:")
-        ans = prompt_model.answer(text)
-        print(ans)
+    Robot.launch(server_name="127.0.0.1", server_port=9999, share=False)
+
+    # prompt_model = Dprompt()
+    #
+    # while True:
+    #     text = input("输入:")
+    #     ans = prompt_model.answer(text)
+    #     print(ans)
 
