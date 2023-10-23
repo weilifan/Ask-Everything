@@ -33,8 +33,14 @@ def get_data(root_path):
                 pages_info = pdf_reader.pages
 
                 for page_info in pages_info:
-                    text = page_info.extract_text()
-                    all_content.append(text)
+                    content = page_info.extract_text()
+                    texts = ""
+                    for text in content:
+                        if len(texts) <= 1:
+                            texts += text
+                        if len(texts) > 150:
+                            all_content.append(texts)
+                            texts = ""
         elif path.endswith(".txt"):
             with open(path, "rb") as f:
                 content = f.read()
@@ -89,8 +95,9 @@ class Dprompt:
 
     def get_sentence_emb(self, text, is_numpy=False):
         idx = self.tokenizer([text], return_tensors="pt")
-        idx = idx["input_idx"].to(device)
+        idx = idx["input_ids"].to(device)
 
+        self.model.to(idx.device)
         emb = self.model.transformer(idx, return_dict=False)[0]
         emb = emb.transpose(0, 1)
         emb = emb[:, -1]
@@ -103,26 +110,26 @@ class Dprompt:
 if __name__ == "__main__":
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     distance = 35000
-    model_path = os.path.abspath("E:/2022CFF-Small-sample-data-classification-task/utils/chat_glm_model")
+    model_path = os.path.abspath("D:/Project/2309/2022CFF-Small-sample-data-classification-task/utils/chat_glm_model")
 
-    with gr.Blocks() as Robot:
-        with gr.Row():
-            with gr.Column(scale=3):
-                chatbot = gr.Chatbot(
-                    [[None, "this is😎机器人"], [None, "😎😭"]],
-                    height=600
-                )
-                query = gr.Textbox(placeholder="输入问题，回车提问😎")
-            with gr.Column(scale=1):
-                file = gr.File(file_count="multiple")
-                button = gr.Button("加载文件")
-
-    Robot.launch(server_name="127.0.0.1", server_port=9999, share=False)
-
-    # prompt_model = Dprompt()
+    # with gr.Blocks() as Robot:
+    #     with gr.Row():
+    #         with gr.Column(scale=3):
+    #             chatbot = gr.Chatbot(
+    #                 [[None, "this is😎机器人"], [None, "😎😭"]],
+    #                 height=600
+    #             )
+    #             query = gr.Textbox(placeholder="输入问题，回车提问😎")
+    #         with gr.Column(scale=1):
+    #             file = gr.File(file_count="multiple")
+    #             button = gr.Button("加载文件")
     #
-    # while True:
-    #     text = input("输入:")
-    #     ans = prompt_model.answer(text)
-    #     print(ans)
+    # Robot.launch(server_name="127.0.0.1", server_port=9999, share=False)
+
+    prompt_model = Dprompt()
+
+    while True:
+        text = input("输入:")
+        ans = prompt_model.answer(text)
+        print(ans)
 
