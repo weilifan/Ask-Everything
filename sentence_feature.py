@@ -38,16 +38,18 @@ def get_data(root_path):
                     content = page_info.extract_text()
                     texts = ""
                     for text in content:
-                        if len(texts) <= 1:
+                        if len(texts) <= 150:
                             texts += text
                         if len(texts) > 150:
                             all_content.append(texts)
                             texts = ""
+                    all_content.append(texts)
         elif path.endswith(".txt"):
             with open(path, "rb") as f:
                 content = f.read()
                 all_content.append(content)
 
+    print(all_content)
     return all_content
 
 
@@ -60,6 +62,8 @@ class DFaiss:
     def search(self, emb):
 
         D, I = self.index.search(emb, 3)
+        print(D)
+        print(I)
 
         if D[0][0] > distance:
             content = ""
@@ -74,7 +78,7 @@ class Dprompt:
 
         self.myfaiss = DFaiss()
 
-        self.load_data("datas")
+        # self.load_data("datas")
 
     def answer(self, text):
         emb = self.get_sentence_emb(text, is_numpy=True)
@@ -127,9 +131,32 @@ def load_file(files):
     return [[None, "文件加载成功😎"]]
 
 
+def ans_stream(query, his):
+    global prompt_model
+
+    result = his + [[query, ""]]
+
+    emb = prompt_model.get_sentence_emb(query, is_numpy=True)
+    prompt = prompt_model.myfaiss.search(emb)
+    if prompt:
+        prompt_content = f"请根据内容回答问题，内容是：{prompt}，问题的是：{query}"
+    else:
+        prompt_content = query
+    for res, his in prompt_model.model.stream_chat(prompt_model.tokenizer, prompt_content, history=[]):
+        result[-1] = [query, res + "😎"]
+        yield result
+
+
+def ans(query, his):
+    global prompt_model
+    res = prompt_model.answer(query)
+
+    return his + [[query, res]]
+
+
 if __name__ == "__main__":
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    distance = 35000
+    distance = 50000
     model_path = os.path.abspath("D:/Project/2309/2022CFF-Small-sample-data-classification-task/utils/chat_glm_model")
 
     prompt_model = Dprompt()
@@ -138,21 +165,14 @@ if __name__ == "__main__":
         with gr.Row():
             with gr.Column(scale=3):
                 chatbot = gr.Chatbot(
-                    [[None, "this is😎机器人"], [None, "😎😭"]],
+                    [[None, "this is😎机器人"]],
                     height=600
                 )
-                query = gr.Textbox(placeholder="输入问题，回车提问😎")
+                query = gr.Textbox(placeholder="输入问题，回车提问😎", show_label=False, container=False)
             with gr.Column(scale=1):
                 file = gr.File(file_count="multiple")
                 button = gr.Button("加载文件")
-                button.click(load_file, inputs=file, outputs=chatbot)
+            button.click(load_file, inputs=file, outputs=chatbot, show_progress=True)
+            query.submit(ans_stream, inputs=[query, chatbot], outputs=chatbot, show_progress=True)
 
-    Robot.launch(server_name="127.0.0.1", server_port=9999, share=False)
-
-
-
-    while True:
-        text = input("输入:")
-        ans = prompt_model.answer(text)
-        print(ans)
-
+    Robot.queue(concurrency_count=3).launch(server_name="127.0.0.1", server_port=9999, share=False)
