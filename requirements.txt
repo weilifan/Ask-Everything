@@ -1,0 +1,9 @@
+requests~=2.28.1
+torch~=1.12.1+cu116
+transformers~=4.23.1
+pypdf~=3.16.4
+gradio~=3.50.2
+Flask~=3.0.3
+faiss-cpu~=1.7.4
+selenium~=4.19.0
+beautifulsoup4~=4.12.3
