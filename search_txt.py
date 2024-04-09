@@ -51,7 +51,7 @@ def get_data(root_path):
     return all_content
 
 
-class DFaiss:
+class FaissRAG:
     def __init__(self):
         self.index = faiss.IndexFlatL2(4096)
         self.text_str_list = []
@@ -70,29 +70,25 @@ class DFaiss:
         return content
 
 
-class Dprompt:
-    def __init__(self):
+class Prompt:
+    def __init__(self, model_url):
 
-        self.myfaiss = DFaiss()
-
-        # self.load_data("datas")
+        self.faiss_rag = FaissRAG()
+        self.model_url = model_url
 
     def answer(self, text):
-        emb = self.get_sentence_emb(text, is_numpy=True)
-        prompt = self.myfaiss.search(emb)
+        emb = self.get_sentence_emb(text)
+        prompt = self.faiss_rag.search(emb)
         if prompt:
             prompt_content = f"请根据内容回答问题，内容是：{prompt}, 问题是：{text}"
         else:
             prompt_content = text
 
-        # response, history = self.model.chat(self.tokenizer, prompt_content, history=[])
-
-        chatglm_url = "http://127.0.0.1:5000/answer"
         param = {
             "sentence": prompt_content
         }
 
-        res = requests.post(chatglm_url, json=param)
+        res = requests.post(self.model_url, json=param)
         res = res.json()
         response = res["ans"]
 
@@ -101,38 +97,28 @@ class Dprompt:
     def load_data(self, root_path):
         all_content = get_data(root_path)
         for content in all_content:
-            self.myfaiss.text_str_list.append(content)
-            emb = self.get_sentence_emb(content, is_numpy=True)
-            self.myfaiss.index.add(emb)
+            self.faiss_rag.text_str_list.append(content)
+            emb = self.get_sentence_emb(content)
+            self.faiss_rag.index.add(emb)
 
-    def get_sentence_emb(self, text, is_numpy=False):
-        # idx = self.tokenizer([text], return_tensors="pt")
-        # idx = idx["input_ids"].to(device)
-        #
-        # self.model.to(idx.device)
-        # emb = self.model.transformer(idx, return_dict=False)[0]
-        chatglm_url = "http://127.0.0.1:5000/answer"
+    def get_sentence_emb(self, text):
         param = {
             "text": text
         }
 
-        res = requests.post(chatglm_url, json=param)
+        res = requests.post(self.model_url, json=param)
         res = res.json()
         emb = res["emb"]
-        # print("hhhhh", emb)
+
         emb = torch.tensor(eval(emb), dtype=torch.float16)
 
-        # emb = emb.transpose(0, 1)
-        # emb = emb[:, -1]
-        #
-        # if is_numpy:
-        #     emb = emb.detach().cpu()
         return emb
 
 
 class Search:
-    def __init__(self):
-        self.prompt_model = Dprompt()
+    def __init__(self, url):
+        url = url
+        self.prompt_model = Prompt(model_url=url)
 
     def load_file(self, files):
 
@@ -145,11 +131,15 @@ class Search:
             p = os.path.join("temp", n)
             shutil.move(file.name, p)
 
-        self.prompt_model.myfaiss.index.reset()
+        self.prompt_model.faiss_rag.index.reset()
         self.prompt_model.load_data("temp")
 
         return [[None, "文件加载成功😎"]]
 
+    def ans(self, query, his):
+        res = self.prompt_model.answer(query)
+
+        return his + [[query, res]]
 
     # def ans_stream(query, his):
     #     global prompt_model
@@ -157,7 +147,7 @@ class Search:
     #     result = his + [[query, ""]]
     #
     #     emb = prompt_model.get_sentence_emb(query, is_numpy=True)
-    #     prompt = prompt_model.myfaiss.search(emb)
+    #     prompt = prompt_model.faiss_rag.search(emb)
     #     if prompt:
     #         prompt_content = f"请根据内容回答问题，内容是：{prompt}，问题的是：{query}"
     #     else:
@@ -167,11 +157,5 @@ class Search:
     #         yield result
 
 
-    def ans(self, query, his):
-        res = self.prompt_model.answer(query)
-
-        return his + [[query, res]]
-
-
 if __name__ == "__main__":
-    prompt_model = Dprompt()
+    prompt_model = Prompt()
